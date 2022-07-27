@@ -2,7 +2,7 @@
     "name": "KarMusic",
     "description": "Music allow you to stream music trought the telegram voice chat feature.",
     "keywords": ["music", "voice chat", "telegram"],
-    "repository": "https://github.com/ArmanGG01/KarMusik",
+    "repository": "https://github.com/Lependosa/tgo_music",
     "stack": "container",
     "env": {
         "SESSION_NAME": {
@@ -71,7 +71,7 @@
         },
         "UPSTREAM_REPO": {
             "description": "Jika Anda tidak tahu ini, Biarkan apa adanya ato di /skip",
-            "value": "https://github.com/ArmanGG01/KarMusik",
+            "value": "https://github.com/Lependosa/tgo_music",
             "required": true
         },
         "UPSTREAM_BRANCH": {
