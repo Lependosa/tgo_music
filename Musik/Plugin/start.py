@@ -1,293 +1,599 @@
 import asyncio
+import yt_dlp
+import psutil
 
-from pyrogram import filters
-from pyrogram.types import (InlineKeyboardButton,
-                            InlineKeyboardMarkup, Message)
-from youtubesearchpython.__future__ import VideosSearch
-
-import config
-from config import BANNED_USERS
-from config.config import OWNER_ID
-from strings import get_command, get_string
-from AnonX import Telegram, YouTube, app
-from AnonX.misc import SUDOERS
-from AnonX.plugins.Robot.playlist import del_plist_msg
-from AnonX.plugins.Robot.sudoers import sudoers_list
-from AnonX.utils.database import (add_served_chat,
-                                       add_served_user,
-                                       blacklisted_chats,
-                                       get_assistant, get_lang,
-                                       get_userss, is_on_off,
-                                       is_served_private_chat)
-from AnonX.utils.decorators.language import LanguageStart
-from AnonX.utils.inline import (help_pannel, private_panel,
-                                     start_pannel)
-
-loop = asyncio.get_running_loop()
-
-
-@app.on_message(
-    filters.command(get_command("START_COMMAND"))
-    & filters.private
-    & ~filters.edited
-    & ~BANNED_USERS
+from Music.config import GROUP, CHANNEL
+from Music import (
+    ASSID,
+    BOT_ID,
+    BOT_NAME,
+    BOT_USERNAME,
+    OWNER,
+    SUDOERS,
+    app,
 )
-@LanguageStart
-async def start_comm(client, message: Message, _):
-    await add_served_user(message.from_user.id)
-    if len(message.text.split()) > 1:
-        name = message.text.split(None, 1)[1]
-        if name[0:4] == "help":
-            keyboard = help_pannel(_)
-            await message.reply_sticker("CAACAgUAAxkBAAIjVmKPYTFByKZlCo9d8mUv8QVAJEw7AAL9BQACiy14VGoQxOCDfE1KJAQ")
-            return await message.reply_photo(
-                       photo=config.START_IMG_URL,
-                       caption=_["help_1"], reply_markup=keyboard
-            )
-        if name[0:4] == "song":
-            return await message.reply_text(_["song_2"])
-        if name[0:3] == "sta":
-            m = await message.reply_text(
-                f"🥱 ɢᴇᴛᴛɪɴɢ ʏᴏᴜʀ ᴩᴇʀsᴏɴᴀʟ sᴛᴀᴛs ғʀᴏᴍ {config.MUSIC_BOT_NAME} sᴇʀᴠᴇʀ."
-            )
-            stats = await get_userss(message.from_user.id)
-            tot = len(stats)
-            if not stats:
-                await asyncio.sleep(1)
-                return await m.edit(_["ustats_1"])
-
-            def get_stats():
-                msg = ""
-                limit = 0
-                results = {}
-                for i in stats:
-                    top_list = stats[i]["spot"]
-                    results[str(i)] = top_list
-                    list_arranged = dict(
-                        sorted(
-                            results.items(),
-                            key=lambda item: item[1],
-                            reverse=True,
-                        )
-                    )
-                if not results:
-                    return m.edit(_["ustats_1"])
-                tota = 0
-                videoid = None
-                for vidid, count in list_arranged.items():
-                    tota += count
-                    if limit == 10:
-                        continue
-                    if limit == 0:
-                        videoid = vidid
-                    limit += 1
-                    details = stats.get(vidid)
-                    title = (details["title"][:35]).title()
-                    if vidid == "telegram":
-                        msg += f"🔗[ᴛᴇʟᴇɢʀᴀᴍ ᴍᴇᴅɪᴀ](https://t.me/DevilsHeavenMF) ** ᴩʟᴀʏᴇᴅ {count} ᴛɪᴍᴇs**\n\n"
-                    else:
-                        msg += f"🔗 [{title}](https://www.youtube.com/watch?v={vidid}) ** played {count} times**\n\n"
-                msg = _["ustats_2"].format(tot, tota, limit) + msg
-                return videoid, msg
-
-            try:
-                videoid, msg = await loop.run_in_executor(
-                    None, get_stats
-                )
-            except Exception as e:
-                print(e)
-                return
-            thumbnail = await YouTube.thumbnail(videoid, True)
-            await m.delete()
-            await message.reply_photo(photo=thumbnail, caption=msg)
-            return
-        if name[0:3] == "sud":
-            await sudoers_list(client=client, message=message, _=_)
-            if await is_on_off(config.LOG):
-                sender_id = message.from_user.id
-                sender_name = message.from_user.first_name
-                return await app.send_message(
-                    config.LOG_GROUP_ID,
-                    f"{message.from_user.mention} ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ᴛʜᴇ ʙᴏᴛ ᴛᴏ ᴄʜᴇᴄᴋ <code>sᴜᴅᴏʟɪsᴛ</code>\n\n**ᴜsᴇʀ ɪᴅ:** {sender_id}\n**ᴜsᴇʀɴᴀᴍᴇ:** {sender_name}",
-                )
-            return
-        if name[0:3] == "lyr":
-            query = (str(name)).replace("lyrics_", "", 1)
-            lyrical = config.lyrical
-            lyrics = lyrical.get(query)
-            if lyrics:
-                return await Telegram.send_split_text(message, lyrics)
-            else:
-                return await message.reply_text(
-                    "ғᴀɪʟᴇᴅ ᴛᴏ ɢᴇᴛ ʟʏʀɪᴄs."
-                )
-        if name[0:3] == "del":
-            await del_plist_msg(client=client, message=message, _=_)
-        if name[0:3] == "inf":
-            m = await message.reply_text("🔎")
-            query = (str(name)).replace("info_", "", 1)
-            query = f"https://www.youtube.com/watch?v={query}"
-            results = VideosSearch(query, limit=1)
-            for result in (await results.next())["result"]:
-                title = result["title"]
-                duration = result["duration"]
-                views = result["viewCount"]["short"]
-                thumbnail = result["thumbnails"][0]["url"].split("?")[
-                    0
-                ]
-                channellink = result["channel"]["link"]
-                channel = result["channel"]["name"]
-                link = result["link"]
-                published = result["publishedTime"]
-            searched_text = f"""
-😲**ᴛʀᴀᴄᴋ ɪɴғᴏʀɴᴀᴛɪᴏɴ**😲
-
-📌 **ᴛɪᴛʟᴇ:** {title}
-
-⏳ **ᴅᴜʀᴀᴛɪᴏɴ:** {duration} ᴍɪɴᴜᴛᴇs
-👀 **ᴠɪᴇᴡs:** `{views}`
-⏰ **ᴩᴜʙʟɪsʜᴇᴅ ᴏɴ:** {published}
-🎥 **ᴄʜᴀɴɴᴇʟ:** {channel}
-📎 **ᴄʜᴀɴɴᴇʟ ʟɪɴᴋ:** [ᴠɪsɪᴛ ᴄʜᴀɴɴᴇʟ]({channellink})
-🔗 **ʟɪɴᴋ:** [ᴡᴀᴛᴄʜ ᴏɴ ʏᴏᴜᴛᴜʙᴇ]({link})
-
-💖 sᴇᴀʀᴄʜ ᴩᴏᴡᴇʀᴇᴅ ʙʏ {config.MUSIC_BOT_NAME}"""
-            key = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="• ʏᴏᴜᴛᴜʙᴇ •", url=f"{link}"
-                        ),
-                        InlineKeyboardButton(
-                            text="• sᴜᴩᴩᴏʀᴛ •", url="https://t.me/DevilsHeavenMF"
-                        ),
-                    ],
-                ]
-            )
-            await m.delete()
-            await app.send_photo(
-                message.chat.id,
-                photo=thumbnail,
-                caption=searched_text,
-                parse_mode="markdown",
-                reply_markup=key,
-            )
-            if await is_on_off(config.LOG):
-                sender_id = message.from_user.id
-                sender_name = message.from_user.first_name
-                return await app.send_message(
-                    config.LOG_GROUP_ID,
-                    f"{message.from_user.mention} ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ʙᴏᴛ ᴛᴏ ᴄʜᴇᴄᴋ <code>ᴛʀᴀᴄᴋ ɪɴғᴏʀᴍᴀᴛɪᴏɴ</code>\n\n**ᴜsᴇʀ ɪᴅ:** {sender_id}\n**ᴜsᴇʀɴᴀᴍᴇ:** {sender_name}",
-                )
-    else:
-        try:
-            await app.resolve_peer(OWNER_ID[0])
-            OWNER = OWNER_ID[0]
-        except:
-            OWNER = None
-        out = private_panel(_, app.username, OWNER)
-        if config.START_IMG_URL:
-            try:
-                await message.reply_sticker("CAACAgUAAxkBAAIjTGKPYCq3keRZgNbshxtJ5k7H609OAAIZBgACYAF5VIerYoMcSln8JAQ")
-                await message.reply_photo(
-                    photo=config.START_IMG_URL,
-                    caption=_["start_2"].format(
-                        config.MUSIC_BOT_NAME
-                    ),
-                    reply_markup=InlineKeyboardMarkup(out),
-                )
-            except:
-                await message.reply_text(
-                    _["start_2"].format(config.MUSIC_BOT_NAME),
-                    reply_markup=InlineKeyboardMarkup(out),
-                )
-        else:
-            await message.reply_text(
-                _["start_2"].format(config.MUSIC_BOT_NAME),
-                reply_markup=InlineKeyboardMarkup(out),
-            )
-        if await is_on_off(config.LOG):
-            sender_id = message.from_user.id
-            sender_name = message.from_user.first_name
-            return await app.send_message(
-                config.LOG_GROUP_ID,
-                f"{message.from_user.mention} ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ʏᴏᴜʀ ʙᴏᴛ.\n\n**ᴜsᴇʀ ɪᴅ:** {sender_id}\n**ᴜsᴇʀɴᴀᴍᴇ:** {sender_name}",
-            )
-
-
-@app.on_message(
-    filters.command(get_command("START_COMMAND"))
-    & filters.group
-    & ~filters.edited
-    & ~BANNED_USERS
+from Music.MusicUtilities.database.chats import is_served_chat
+from Music.MusicUtilities.database.queue import remove_active_chat
+from Music.MusicUtilities.database.sudo import get_sudoers
+from Music.MusicUtilities.database.assistant import (_get_assistant, get_as_names, get_assistant,
+                        save_assistant)
+from Music.MusicUtilities.database.auth import (_get_authusers, add_nonadmin_chat, delete_authuser,
+                   get_authuser, get_authuser_count, get_authuser_names,
+                   is_nonadmin_chat, remove_nonadmin_chat, save_authuser)
+from Music.MusicUtilities.database.blacklistchat import blacklist_chat, blacklisted_chats, whitelist_chat
+from Music.MusicUtilities.helpers.admins import ActualAdminCB
+from Music.MusicUtilities.helpers.inline import personal_markup, setting_markup
+from Music.MusicUtilities.helpers.inline import (custommarkup, dashmarkup, setting_markup,
+                          start_pannel, usermarkup, volmarkup)
+from Music.MusicUtilities.helpers.thumbnails import down_thumb
+from Music.MusicUtilities.helpers.ytdl import ytdl_opts
+from Music.MusicUtilities.tgcallsrun.music import pytgcalls
+from pyrogram import Client, filters
+from pyrogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
 )
-@LanguageStart
-async def testbot(client, message: Message, _):
-    OWNER = OWNER_ID[0]
-    out = start_pannel(_, app.username, OWNER)
-    return await message.reply_photo(
-               photo=config.START_IMG_URL,
-               caption=_["start_1"].format(
-            message.chat.title, config.MUSIC_BOT_NAME
-        ),
-        reply_markup=InlineKeyboardMarkup(out),
+
+
+def start_pannel():
+    buttons = [
+        [
+            InlineKeyboardButton(text="sᴜᴘᴘᴏʀᴛ​", url=f"https://t.me/{GROUP}"),
+            InlineKeyboardButton(text="ᴄʜᴀɴɴᴇʟ", url=f"https://t.me/{CHANNEL}"),
+        ],
+        [
+            InlineKeyboardButton("📚 ᴄᴏᴍᴍᴀɴᴅ​ 📚", url="https://telegra.ph/%F0%9D%99%BA%F0%9D%99%B0%F0%9D%9A%81%F0%9D%99%BC%F0%9D%9A%84%F0%9D%9A%82%F0%9D%99%B8%F0%9D%99%BA-06-25"),
+        ],
+        [
+            InlineKeyboardButton("🌐 sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ 🌐", url="https://github.com/Lependosa/tgo_music"),
+        ],
+        [
+            InlineKeyboardButton("🌹 ᴏᴡɴᴇʀ 🌹", url=f"https://t.me/skoyii"),
+        ],
+    ]
+    return (
+        "🎛 **{BOT_NAME} Merupakan salah satu dari bot telegram yang bisa memutar musik di grup**",
+        buttons,
     )
 
 
-welcome_group = 2
+pstart_markup = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton(
+                "➕ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ ➕", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"),
+        ],
+        [
+            InlineKeyboardButton(text="sᴜᴘᴘᴏʀᴛ​", url=f"https://t.me/{GROUP}"),
+            InlineKeyboardButton("ᴄʜᴀɴɴᴇʟ", url=f"https://t.me/{CHANNEL}"),
+        ],
+        [
+            InlineKeyboardButton("📚 ᴄᴏᴍᴍᴀɴᴅ ​📚", url="https://telegra.ph/%F0%9D%99%BA%F0%9D%99%B0%F0%9D%9A%81%F0%9D%99%BC%F0%9D%9A%84%F0%9D%9A%82%F0%9D%99%B8%F0%9D%99%BA-06-25"),
+        ],
+        [
+            InlineKeyboardButton("🌐 sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ 🌐", url="https://github.com/Lependosa/tgo_music"),
+        ],
+        [
+            InlineKeyboardButton"🌹 ᴏᴡɴᴇʀ "🌹, url=f" https://t.me/skoyii")
+        ],
+    ]
+)
+welcome_captcha_group = 2
 
 
-@app.on_message(filters.new_chat_members, group=welcome_group)
-async def welcome(client, message: Message):
+@app.on_message(filters.new_chat_members, group=welcome_captcha_group)
+async def welcome(_, message: Message):
     chat_id = message.chat.id
-    if config.PRIVATE_BOT_MODE == str(True):
-        if not await is_served_private_chat(message.chat.id):
-            await message.reply_text(
-                "**ᴩʀɪᴠᴀᴛᴇ ᴍᴜsɪᴄ ʙᴏᴛ**\n\nᴏɴʟʏ ғᴏʀ ᴛʜᴇ ᴄʜᴀᴛs ᴀᴜᴛʜᴏʀɪsᴇᴅ ʙʏ ᴍʏ ᴏᴡɴᴇʀ, ʀᴇǫᴜᴇsᴛ ɪɴ ᴍʏ ᴏᴡɴᴇʀ's ᴩᴍ ᴛᴏ ᴀᴜᴛʜᴏʀɪsᴇ ʏᴏᴜʀ ᴄʜᴀᴛ ᴀɴᴅ ɪғ ʏᴏᴜ ᴅᴏɴ'ᴛ ᴡᴀɴᴛ ᴛᴏ ᴅᴏ sᴏ ᴛʜᴇɴ ғᴜ*ᴋ ᴏғғ ʙᴇᴄᴀᴜsᴇ ɪ'ᴍ ʟᴇᴀᴠɪɴɢ."
-            )
-            return await app.leave_chat(message.chat.id)
-    else:
-        await add_served_chat(chat_id)
     for member in message.new_chat_members:
         try:
-            language = await get_lang(message.chat.id)
-            _ = get_string(language)
-            if member.id == app.id:
-                chat_type = message.chat.type
-                if chat_type != "supergroup":
-                    await message.reply_text(_["start_6"])
-                    return await app.leave_chat(message.chat.id)
-                if chat_id in await blacklisted_chats():
-                    await message.reply_text(
-                        _["start_7"].format(
-                            f"https://t.me/{app.username}?start=sudolist"
-                        )
-                    )
-                    return await app.leave_chat(chat_id)
-                userbot = await get_assistant(message.chat.id)
-                OWNER = OWNER_ID[0]
-                out = start_pannel(_, app.username, OWNER)
-                await message.reply_photo(
-                    photo=config.START_IMG_URL,
-                    caption=_["start_3"].format(
-                        config.MUSIC_BOT_NAME,
-                        userbot.username,
-                        userbot.id,
-                    ),
-                    reply_markup=InlineKeyboardMarkup(out),
-                )
-            if member.id in config.OWNER_ID:
+            if member.id in OWNER:
                 return await message.reply_text(
-                    _["start_4"].format(
-                        config.MUSIC_BOT_NAME, member.mention
-                    )
+                    f"💡 Pemilik Bot [{member.mention}] baru saja bergabung di grup ini."
                 )
             if member.id in SUDOERS:
                 return await message.reply_text(
-                    _["start_5"].format(
-                        config.MUSIC_BOT_NAME, member.mention
-                    )
+                    f"💡 Admin Bot [{member.mention}] baru saja bergabung di grup ini."
                 )
+            if member.id == ASSID:
+                await remove_active_chat(chat_id)
+            if member.id == BOT_ID:
+                out = start_pannel()
+                await message.reply_text(
+                    f"""
+👋 ** Halo senang rasanya bisa bergabung di grup ini**
+
+💡 **Jangan lupa untuk menjadikan saya sebagai admin di grup ini**
+""",
+                    reply_markup=InlineKeyboardMarkup(out[1]),
+                    disable_web_page_preview=True
+                )
+                return
+        except BaseException:
             return
+
+
+@Client.on_message(
+    filters.group
+    & filters.command(
+        ["start", "help", f"start@{BOT_USERNAME}", f"help@{BOT_USERNAME}"]
+    )
+)
+async def start(_, message: Message):
+    chat_id = message.chat.id
+    out = start_pannel()
+    await message.reply_text(
+        f"""
+Terima kasih telah memasukkan saya di {message.chat.title}.
+Musik itu hidup.
+
+Untuk bantuan silahkan klik tombol dibawah.
+""",
+        reply_markup=InlineKeyboardMarkup(out[1]),
+        disable_web_page_preview=True
+    )
+    return
+
+
+@Client.on_message(filters.private & filters.incoming & filters.command("start"))
+async def play(_, message: Message):
+    if len(message.command) == 1:
+        user_id = message.from_user.id
+        user_name = message.from_user.first_name
+        rpk = "[" + user_name + "](tg://user?id=" + str(user_id) + ")"
+        await app.send_message(
+            message.chat.id,
+            text=f"""
+**✨ Selamat Datang {rpk}!
+
+💬 [{BOT_NAME}](tg://user?id=2129034376) memungkinkan anda untuk memutar musik pada grup melalui obrolan suara yang baru di Telegram!
+
+💡 Untuk Mengetahui Semua Perintah Bot Dan Bagaimana Cara Kerja Nya Dengan Menekan Tombol » 📚 ᴄᴏᴍᴍᴀɴᴅ​!**
+
+""",
+            parse_mode="markdown",
+            reply_markup=pstart_markup,
+            reply_to_message_id=message.message_id,
+        )
+    elif len(message.command) == 2:
+        query = message.text.split(None, 1)[1]
+        f1 = query[0]
+        f2 = query[1]
+        f3 = query[2]
+        finxx = f"{f1}{f2}{f3}"
+        if str(finxx) == "inf":
+            query = (str(query)).replace("info_", "", 1)
+            query = f"https://www.youtube.com/watch?v={query}"
+            with yt_dlp.YoutubeDL(ytdl_opts) as ytdl:
+                x = ytdl.extract_info(query, download=False)
+            thumbnail = x["thumbnail"]
+            searched_text = f"""
+🔍 **Video Track Information**
+
+❇️**Judul:** {x["title"]}
+
+⏳ **Durasi:** {round(x["duration"] / 60)} Mins
+👀 **Ditonton:** `{x["view_count"]}`
+👍 **Suka:** `{x["like_count"]}`
+👎 **Tidak suka:** `{x["dislike_count"]}`
+⭐️ **Peringkat Rata-rata:** {x["average_rating"]}
+🎥 **Nama channel:** {x["uploader"]}
+📎 **Channel Link:** [Kunjungi Dari Sini]({x["channel_url"]})
+🔗 **Link:** [Link]({x["webpage_url"]})
+"""
+            link = x["webpage_url"]
+            buttons = personal_markup(link)
+            userid = message.from_user.id
+            thumb = await down_thumb(thumbnail, userid)
+            await app.send_photo(
+                message.chat.id,
+                photo=thumb,
+                caption=searched_text,
+                parse_mode="markdown",
+                reply_markup=InlineKeyboardMarkup(buttons),
+            )
+        if str(finxx) == "sud":
+            sudoers = await get_sudoers()
+            text = "**📝 DAFTAR PENGGUNA SUDO**\n\n"
+            for count, user_id in enumerate(sudoers, 1):
+                try:
+                    user = await app.get_users(user_id)
+                    user = user.first_name if not user.mention else user.mention
+                except Exception:
+                    continue
+                text += f"- {user}\n"
+            if not text:
+                await message.reply_text("Tidak Ada Pengguna Sudo")
+            else:
+                await message.reply_text(text)
+
+
+@app.on_message(filters.command("settings") & filters.group)
+async def settings(_, message: Message):
+    c_id = message.chat.id
+    _check = await get_assistant(c_id, "assistant")
+    if not _check:
+        assis = {
+            "volume": 100,
+        }
+        await save_assistant(c_id, "assistant", assis)
+        volume = 100
+    else:
+        volume = _check["volume"]
+    text, buttons = setting_markup()
+    await asyncio.gather(
+        message.delete(),
+        message.reply_text(f"{text}\n\n**Group:** {message.chat.title}\n**Group ID:** {message.chat.id}\n**Volume Level:** {volume}%", reply_markup=InlineKeyboardMarkup(buttons)),
+    )
+
+@app.on_callback_query(filters.regex("okaybhai"))
+async def okaybhai(_, CallbackQuery):
+    await CallbackQuery.answer("Going Back ...")
+    out = start_pannel()
+    await CallbackQuery.edit_message_text(
+        text=f"Terimakasih telah menambahkan saya di {CallbackQuery.message.chat.title}.\n{BOT_NAME} Telah online.\n\nJika butuh bantuan atau terjadi masalah dengan Bot silahkan bergabung di group atau channel kami.",
+        reply_markup=InlineKeyboardMarkup(out[1]),
+    )
+
+@app.on_callback_query(filters.regex("settingm"))
+async def settingm(_, CallbackQuery):
+    await CallbackQuery.answer("Bot Settings ...")
+    text, buttons = setting_markup()
+    c_title = CallbackQuery.message.chat.title
+    c_id = CallbackQuery.message.chat.id
+    chat_id = CallbackQuery.message.chat.id
+    _check = await get_assistant(c_id, "assistant")
+    if not _check:
+        assis = {
+            "volume": 100,
+        }
+        await save_assistant(c_id, "assistant", assis)
+        volume = 100
+    else:
+        volume = _check["volume"]
+    await CallbackQuery.edit_message_text(
+        text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%",
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+
+@app.on_callback_query(filters.regex("EVE"))
+@ActualAdminCB
+async def EVE(_, CallbackQuery):
+    checking = CallbackQuery.from_user.username
+    text, buttons = usermarkup()
+    chat_id = CallbackQuery.message.chat.id
+    is_non_admin = await is_nonadmin_chat(chat_id)
+    if not is_non_admin:
+        await CallbackQuery.answer("Changes Saved")
+        await add_nonadmin_chat(chat_id)
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\nAdmins Commands Mode to **Everyone**\n\nNow anyone present in this group can skip, pause, resume, stop music.\n\nChanges Done By @{checking}",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    else:
+        await CallbackQuery.answer(
+            "Commands Mode is Already Set To EVERYONE", show_alert=True
+        )
+
+@app.on_callback_query(filters.regex("AMS"))
+@ActualAdminCB
+async def AMS(_, CallbackQuery):
+    checking = CallbackQuery.from_user.username
+    text, buttons = usermarkup()
+    chat_id = CallbackQuery.message.chat.id
+    is_non_admin = await is_nonadmin_chat(chat_id)
+    if not is_non_admin:
+        await CallbackQuery.answer(
+            "Commands Mode is Already Set To ADMINS ONLY", show_alert=True
+        )
+    else:
+        await CallbackQuery.answer("Changes Saved")
+        await remove_nonadmin_chat(chat_id)
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\nSet Commands Mode to **Admins**\n\nNow only Admins present in this group can skip, pause, resume, stop musics.\n\nChanges Done By @{checking}",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+
+
+@app.on_callback_query(
+    filters.regex(
+        pattern=r"^(AQ|AV|AU|Dashboard|HV|LV|MV|HV|VAM|Custommarkup|PTEN|MTEN|PTF|MTF|PFZ|MFZ|USERLIST|UPT|CPT|RAT|DIT)$"
+    )
+)
+async def start_markup_check(_, CallbackQuery):
+    command = CallbackQuery.matches[0].group(1)
+    c_title = CallbackQuery.message.chat.title
+    c_id = CallbackQuery.message.chat.id
+    chat_id = CallbackQuery.message.chat.id
+    if command == "AQ":
+        await CallbackQuery.answer("Already in Best Quality", show_alert=True)
+    if command == "AV":
+        await CallbackQuery.answer("Bot Settings ...")
+        text, buttons = volmarkup()
+        _check = await get_assistant(c_id, "assistant")
+        volume = _check["volume"]
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "AU":
+        await CallbackQuery.answer("Bot Settings ...")
+        text, buttons = usermarkup()
+        is_non_admin = await is_nonadmin_chat(chat_id)
+        if not is_non_admin:
+            current = "Admins Only"
+        else:
+            current = "Everyone"
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n\nCurrently Who Can Use {BOT_NAME}:- **{current}**\n\n**⁉️ What is This?**\n\n**👥 Everyone :-**Anyone can use {BOT_NAME}'s commands(skip, pause, resume etc) present in this group.\n\n**🙍 Admin Only :-**  Only the admins and authorized users can use all commands of {BOT_NAME}.",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "Dashboard":
+        await CallbackQuery.answer("Dashboard...")
+        text, buttons = dashmarkup()
+        _check = await get_assistant(c_id, "assistant")
+        volume = _check["volume"]
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n\nCheck {BOT_NAME}'s System Stats In the DashBoard Here! More Functions adding very soon! Keep on Checking Support Channel.",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "Custommarkup":
+        await CallbackQuery.answer("Bot Settings ...")
+        text, buttons = custommarkup()
+        _check = await get_assistant(c_id, "assistant")
+        volume = _check["volume"]
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "LV":
+        assis = {
+            "volume": 25,
+        }
+        volume = 25
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
         except:
-            return
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = volmarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "MV":
+        assis = {
+            "volume": 50,
+        }
+        volume = 50
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
+        except:
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = volmarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "HV":
+        assis = {
+            "volume": 100,
+        }
+        volume = 100
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
+        except:
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = volmarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "VAM":
+        assis = {
+            "volume": 200,
+        }
+        volume = 200
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
+        except:
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = volmarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "PTEN":
+        _check = await get_assistant(c_id, "assistant")
+        volume = _check["volume"]
+        volume = volume + 10
+        if int(volume) > 200:
+            volume = 200
+        if int(volume) < 10:
+            volume = 10
+        assis = {
+            "volume": volume,
+        }
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
+        except:
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = custommarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "MTEN":
+        _check = await get_assistant(c_id, "assistant")
+        volume = _check["volume"]
+        volume = volume - 10
+        if int(volume) > 200:
+            volume = 200
+        if int(volume) < 10:
+            volume = 10
+        assis = {
+            "volume": volume,
+        }
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
+        except:
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = custommarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "PTF":
+        _check = await get_assistant(c_id, "assistant")
+        volume = _check["volume"]
+        volume = volume + 25
+        if int(volume) > 200:
+            volume = 200
+        if int(volume) < 10:
+            volume = 10
+        assis = {
+            "volume": volume,
+        }
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
+        except:
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = custommarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "MTF":
+        _check = await get_assistant(c_id, "assistant")
+        volume = _check["volume"]
+        volume = volume - 25
+        if int(volume) > 200:
+            volume = 200
+        if int(volume) < 10:
+            volume = 10
+        assis = {
+            "volume": volume,
+        }
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
+        except:
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = custommarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "PFZ":
+        _check = await get_assistant(c_id, "assistant")
+        volume = _check["volume"]
+        volume = volume + 50
+        if int(volume) > 200:
+            volume = 200
+        if int(volume) < 10:
+            volume = 10
+        assis = {
+            "volume": volume,
+        }
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
+        except:
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = custommarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "MFZ":
+        _check = await get_assistant(c_id, "assistant")
+        volume = _check["volume"]
+        volume = volume - 50
+        if int(volume) > 200:
+            volume = 200
+        if int(volume) < 10:
+            volume = 10
+        assis = {
+            "volume": volume,
+        }
+        try:
+            await pytgcalls.change_volume_call(c_id, volume)
+            await CallbackQuery.answer("Setting Audio Changes ...")
+        except:
+            return await CallbackQuery.answer("No active Group Call...")
+        await save_assistant(c_id, "assistant", assis)
+        text, buttons = custommarkup()
+        await CallbackQuery.edit_message_text(
+            text=f"{text}\n\n**Group:** {c_title}\n**Group ID:** {c_id}\n**Volume Level:** {volume}%\n**Audio Quality:** Default Best",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    if command == "USERLIST":
+        await CallbackQuery.answer("Auth Users!")
+        text, buttons = usermarkup()
+        _playlist = await get_authuser_names(CallbackQuery.message.chat.id)
+        if not _playlist:
+            return await CallbackQuery.edit_message_text(
+                text=f"{text}\n\nNo Authorized Users Found\n\nYou can allow any non-admin to use my admin commands by /auth and delete by using /unauth",
+                reply_markup=InlineKeyboardMarkup(buttons),
+            )
+        else:
+            j = 0
+            await CallbackQuery.edit_message_text(
+                "Fetching Authorised Users... Please Wait"
+            )
+            msg = f"**Authorised Users List[AUL]:**\n\n"
+            for note in _playlist:
+                _note = await get_authuser(
+                    CallbackQuery.message.chat.id, note
+                )
+                user_id = _note["auth_user_id"]
+                user_name = _note["auth_name"]
+                admin_id = _note["admin_id"]
+                admin_name = _note["admin_name"]
+                try:
+                    user = await app.get_users(user_id)
+                    user = user.first_name
+                    j += 1
+                except Exception:
+                    continue
+                msg += f"{j}➤ {user}[`{user_id}`]\n"
+                msg += f"    ┗ Added By:- {admin_name}[`{admin_id}`]\n\n"
+            await CallbackQuery.edit_message_text(
+                msg, reply_markup=InlineKeyboardMarkup(buttons)
+            )
+    if command == "UPT":
+        bot_uptimee = int(time.time() - bot_start_time)
+        Uptimeee = f"{get_readable_time((bot_uptimee))}"
+        await CallbackQuery.answer(
+            f"Bot's Uptime: {Uptimeee}", show_alert=True
+        )
+    if command == "CPT":
+        cpue = psutil.cpu_percent(interval=0.5)
+        await CallbackQuery.answer(
+            f"Bot's Cpu Usage: {cpue}%", show_alert=True
+        )
+    if command == "RAT":
+        meme = psutil.virtual_memory().percent
+        await CallbackQuery.answer(
+            f"Bot's Memory Usage: {meme}%", show_alert=True
+        )
+    if command == "DIT":
+        diske = psutil.disk_usage("/").percent
+        await CallbackQuery.answer(
+            f"Disk Usage: {diske}%", show_alert=True
+        )
