@@ -49,7 +49,7 @@ def start_pannel():
             InlineKeyboardButton("🌐 sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ 🌐", url="https://github.com/Lependosa/tgo_music"),
         ],
         [
-            InlineKeyboardButton("🌹 ᴏᴡɴᴇʀ 🌹", url=f"https://t.me/skoyii"),
+            InlineKeyboardButton("🌹 ᴏᴡɴᴇʀ 🌹", url="https://t.me/skoyii"),
         ],
     ]
     return (
@@ -75,7 +75,7 @@ pstart_markup = InlineKeyboardMarkup(
             InlineKeyboardButton("🌐 sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ 🌐", url="https://github.com/Lependosa/tgo_music"),
         ],
         [
-            InlineKeyboardButton"🌹 ᴏᴡɴᴇʀ "🌹, url=f" https://t.me/skoyii")
+            InlineKeyboardButton"🌹 ᴏᴡɴᴇʀ "🌹, url=" https://t.me/skoyii")
         ],
     ]
 )
