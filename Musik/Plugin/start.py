@@ -8,7 +8,7 @@ from Music import (
     BOT_ID,
     BOT_NAME,
     BOT_USERNAME,
-    OWNER,
+    OWNER, 
     SUDOERS,
     app,
 )
@@ -43,10 +43,11 @@ def start_pannel():
             InlineKeyboardButton(text="ᴄʜᴀɴɴᴇʟ", url=f"https://t.me/{CHANNEL}"),
         ],
         [
-            InlineKeyboardButton("📚 ᴄᴏᴍᴍᴀɴᴅ​ 📚", url="https://telegra.ph/%F0%9D%99%BA%F0%9D%99%B0%F0%9D%9A%81%F0%9D%99%BC%F0%9D%9A%84%F0%9D%9A%82%F0%9D%99%B8%F0%9D%99%BA-06-25"),
+            InlineKeyboardButton("ᴏᴡɴᴇʀ", url=f"https://t.me/skoyii"), 
+            InlineKeyboardButton("ᴄᴏᴍᴍᴀɴᴅ​", url="https://telegra.ph/Icall-05-28"),
         ],
         [
-            InlineKeyboardButton("🌐 sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ 🌐", url="https://github.com/ArmanGG01/KarMusik"),
+            InlineKeyboardButton("sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ", url="https://github.com/Lependosa/tgo_music"),
         ],
     ]
     return (
@@ -66,10 +67,11 @@ pstart_markup = InlineKeyboardMarkup(
             InlineKeyboardButton("ᴄʜᴀɴɴᴇʟ", url=f"https://t.me/{CHANNEL}"),
         ],
         [
-            InlineKeyboardButton("📚 ᴄᴏᴍᴍᴀɴᴅ ​📚", url="https://telegra.ph/%F0%9D%99%BA%F0%9D%99%B0%F0%9D%9A%81%F0%9D%99%BC%F0%9D%9A%84%F0%9D%9A%82%F0%9D%99%B8%F0%9D%99%BA-06-25"),
+            InlineKeyboardButton("ᴏᴡɴᴇʀ", url=f"https://t.me/skoyii"),
+            InlineKeyboardButton("ᴄᴏᴍᴍᴀɴᴅ", url="https://telegra.ph/Icall-05-28"),
         ],
         [
-            InlineKeyboardButton("🌐 sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ 🌐", url="https://github.com/ArmanGG01/KarMusik"),
+            InlineKeyboardButton("sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ", url="https://github.com/Lependosa/tgo_music"),
         ],
     ]
 )
